@@ -1,0 +1,27 @@
+{
+  "name": "@dashdine/utils",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared utility functions for DashDine services",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2"
+  },
+  "devDependencies": {
+    "@dashdine/eslint-config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,53 @@
+# ── Dependencies ──
+node_modules/
+
+# ── Build outputs ──
+dist/
+build/
+.next/
+out/
+
+# ── TypeScript cache ──
+*.tsbuildinfo
+
+# ── Turborepo cache ──
+.turbo/
+
+# ── Environment variables (NEVER commit secrets) ──
+.env
+.env.local
+.env.*.local
+
+# ── IDE & Editor ──
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Testing ──
+coverage/
+*.lcov
+.nyc_output/
+
+# ── Logs ──
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ── Docker ──
+docker-compose.override.yml
+
+# ── Terraform ──
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/*.tfvars
+!infra/terraform/**/terraform.tfvars.example
+
+# ── OS files ──
+.DS_Store
+Thumbs.db

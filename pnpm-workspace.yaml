@@ -1,0 +1,9 @@
+packages:
+  # Frontend applications (React SPAs)
+  - "apps/*"
+
+  # Backend microservices and BFF gateways
+  - "services/*"
+
+  # Shared libraries (types, utils, validators, etc.)
+  - "packages/*"

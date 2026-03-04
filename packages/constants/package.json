@@ -1,0 +1,24 @@
+{
+  "name": "@dashdine/constants",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared enums, constants, and configuration values for DashDine",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "devDependencies": {
+    "@dashdine/eslint-config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}
