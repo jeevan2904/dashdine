@@ -1,0 +1,135 @@
+# ═══════════════════════════════════════════════════════════════
+# DashDine — Local Development Infrastructure
+# ═══════════════════════════════════════════════════════════════
+#
+# USAGE:
+#   Start everything:     docker compose up -d
+#   Stop everything:      docker compose down
+#   Stop + delete data:   docker compose down -v
+#   View logs:            docker compose logs -f
+#   View specific logs:   docker compose logs -f postgres
+#   Check status:         docker compose ps
+#
+# PORTS:
+#   PostgreSQL:       localhost:5432
+#   Redis:            localhost:6379
+#   MongoDB:          localhost:27017
+#   RabbitMQ (AMQP):  localhost:5672
+#   RabbitMQ (UI):    localhost:15672  (guest / guest)
+#
+# NOTE:
+#   Microservices run directly on your machine (not in Docker)
+#   for hot-reload during development. Only databases and
+#   infrastructure run in containers.
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────
+  # Primary relational database for most services.
+  # The init script creates separate databases per service.
+  postgres:
+    image: postgres:16-alpine
+    container_name: dashdine-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dashdine
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: dashdine_auth
+    ports:
+      - '5432:5432'
+    volumes:
+      # Persist data between container restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Run init script on first startup to create all databases
+      - ./infra/scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dashdine']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─── Redis ────────────────────────────────────────────────
+  # Used for: sessions, OTP storage, caching, rider locations,
+  # rate limiting, broadcast locks, pub/sub.
+  redis:
+    image: redis:7-alpine
+    container_name: dashdine-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    # Max memory 256MB with LRU eviction for cache keys
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ─── MongoDB ──────────────────────────────────────────────
+  # Used for: restaurant menus (deeply nested documents),
+  # notifications (append-only, TTL-based cleanup).
+  mongodb:
+    image: mongo:7
+    container_name: dashdine-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dashdine
+      MONGO_INITDB_ROOT_PASSWORD: dev_password
+      MONGO_INITDB_DATABASE: dashdine_restaurants
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+      # Init script to create databases and users
+      - ./infra/scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── RabbitMQ ─────────────────────────────────────────────
+  # Message broker for async inter-service communication.
+  # Events like order.placed, payment.completed, etc.
+  # Management UI at http://localhost:15672 (guest/guest)
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: dashdine-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: dashdine
+      RABBITMQ_DEFAULT_PASS: dev_password
+    ports:
+      - '5672:5672' # AMQP protocol (services connect here)
+      - '15672:15672' # Management Web UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+# ─── Volumes ──────────────────────────────────────────────
+# Named volumes persist data between container restarts.
+# Run 'docker compose down -v' to delete all data and start fresh.
+volumes:
+  postgres_data:
+    name: dashdine_postgres_data
+  redis_data:
+    name: dashdine_redis_data
+  mongo_data:
+    name: dashdine_mongo_data
+  rabbitmq_data:
+    name: dashdine_rabbitmq_data

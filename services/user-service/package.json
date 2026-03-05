@@ -1,0 +1,41 @@
+{
+  "name": "@dashdine/user-service",
+  "version": "0.0.0",
+  "private": true,
+  "description": "User profiles, addresses, and preferences microservice for DashDine",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/server.js",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "@dashdine/constants": "workspace:*",
+    "@dashdine/logger": "workspace:*",
+    "@dashdine/types": "workspace:*",
+    "@dashdine/utils": "workspace:*",
+    "@dashdine/validators": "workspace:*",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/sensible": "^6.0.0",
+    "@fastify/swagger": "^9.4.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "amqplib": "^0.10.5",
+    "drizzle-orm": "^0.44.0",
+    "fastify": "^5.2.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.25.3"
+  },
+  "devDependencies": {
+    "@dashdine/eslint-config": "workspace:*",
+    "@types/amqplib": "^0.10.0",
+    "@types/node": "^22.15.0",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}
