@@ -1,15 +1,8 @@
 /**
- * Auth Service — Main Server Entry Point
+ * User Service — Main Server Entry Point
  *
- * This file does four things:
- * 1. Creates a Fastify instance with plugins (CORS, helmet, swagger)
- * 2. Registers a global error handler
- * 3. Registers route plugins (health, auth, etc.)
- * 4. Starts the HTTP server
- *
- * STARTUP FLOW:
- *   env.ts validates environment → logger is created → Fastify starts →
- *   plugins register → routes register → server listens on PORT
+ * Same pattern as Auth Service:
+ * Fastify + plugins + error handler + request logging + graceful shutdown
  */
 
 import fastify from 'fastify';
@@ -25,110 +18,64 @@ import { EventBus } from '@dashdine/queue';
 
 import { env } from './config/env.js';
 import { closeDatabase } from './db/index.js';
+import { registerEventConsumers } from './events/consumer.js';
 import { AppError, ValidationError } from './lib/errors.js';
-import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
+import { profileRoutes } from './routes/profile.js';
 
 // ═══ Create Logger ═══
 const logger = createLogger({
-  service: 'auth-service',
+  service: 'user-service',
   level: env.LOG_LEVEL,
 });
 
 // ═══ Create Event Bus ═══
 const eventBus = new EventBus({
   url: env.RABBITMQ_URL,
-  service: 'auth-service',
+  service: 'user-service',
   logger,
 });
 
-/** Exported so service layer can publish events */
-export { eventBus };
-
 // ═══ Create Fastify Instance ═══
 const app = fastify({
-  // Use our Pino logger (Fastify has built-in Pino support!)
-  logger: false, // We handle logging ourselves for more control
-
-  // Generate unique request IDs for distributed tracing
+  logger: false,
   genReqId: () => `req_${generateId()}`,
-
-  // Increase body size limit for file uploads (profile images, documents)
-  bodyLimit: 10 * 1024 * 1024, // 10MB
+  bodyLimit: 10 * 1024 * 1024,
 });
 
 // ═══ Register Plugins ═══
-
-/**
- * CORS — Cross-Origin Resource Sharing
- * Allows the frontend (running on a different port/domain) to call this API.
- */
 await app.register(cors, {
-  origin: env.CORS_ORIGIN.split(','), // Support multiple origins: "http://localhost:5173,http://localhost:5174"
+  origin: env.CORS_ORIGIN.split(','),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
-  credentials: true, // Allow cookies and Authorization headers
+  credentials: true,
 });
 
-/**
- * Helmet — Security Headers
- * Adds headers like X-Content-Type-Options, X-Frame-Options, etc.
- */
-await app.register(helmet, {
-  contentSecurityPolicy: false, // Disable CSP for API (no HTML served)
-});
-
-/**
- * Sensible — Error Utilities
- * Adds reply.notFound(), reply.badRequest(), etc.
- */
+await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(sensible);
 
-/**
- * Swagger — Auto-generated API Documentation
- * Visit http://localhost:3001/docs to see interactive API docs.
- */
 await app.register(swagger, {
   openapi: {
     info: {
-      title: 'DashDine Auth Service',
-      description: 'Authentication and Authorization API',
+      title: 'DashDine User Service',
+      description: 'User Profiles and Addresses API',
       version: '1.0.0',
     },
     servers: [{ url: `http://localhost:${env.PORT}`, description: 'Local development' }],
     tags: [
       { name: 'Health', description: 'Health check endpoints' },
-      { name: 'Auth', description: 'Authentication endpoints' },
+      { name: 'Profiles', description: 'User profile management' },
+      { name: 'Addresses', description: 'Delivery address management' },
     ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
-    },
   },
 });
 
 await app.register(swaggerUi, {
   routePrefix: '/docs',
-  uiConfig: {
-    docExpansion: 'list',
-    deepLinking: true,
-  },
+  uiConfig: { docExpansion: 'list', deepLinking: true },
 });
 
 // ═══ Global Error Handler ═══
-
-/**
- * This catches ALL errors thrown in any route handler.
- * It converts them to our standard API error response format.
- *
- * This is why we created custom error classes — we can check the
- * error type and build the appropriate response automatically.
- */
 app.setErrorHandler((error: unknown, request, reply) => {
   const requestId = (request.id as string) ?? `req_${generateId()}`;
 
@@ -192,20 +139,10 @@ app.setErrorHandler((error: unknown, request, reply) => {
   });
 });
 
-// ═══ Request Logging Hook ═══
-
-/**
- * Log every incoming request and its response time.
- * This gives us observability into API performance.
- */
+// ═══ Request Logging ═══
 app.addHook('onRequest', (request, _reply, done) => {
   logger.info(
-    {
-      requestId: request.id,
-      method: request.method,
-      url: request.url,
-      userAgent: request.headers['user-agent'],
-    },
+    { requestId: request.id, method: request.method, url: request.url },
     'Incoming request',
   );
   done();
@@ -226,29 +163,20 @@ app.addHook('onResponse', (request, reply, done) => {
 });
 
 // ═══ Register Routes ═══
-
 await app.register(healthRoutes);
-await app.register(authRoutes, { prefix: '/api/v1/auth' });
+await app.register(profileRoutes, { prefix: '/api/v1/users' });
 
 // ═══ Start Server ═══
-
 async function start(): Promise<void> {
   try {
-    // Connect to RabbitMQ
+    // Connect to RabbitMQ and register event consumers
     await eventBus.connect();
+    await registerEventConsumers(eventBus, logger);
 
-    await app.listen({
-      port: env.PORT,
-      host: env.HOST,
-    });
-
+    await app.listen({ port: env.PORT, host: env.HOST });
     logger.info(
-      {
-        port: env.PORT,
-        env: env.NODE_ENV,
-        docs: `http://localhost:${env.PORT}/docs`,
-      },
-      `🚀 Auth Service is running`,
+      { port: env.PORT, env: env.NODE_ENV, docs: `http://localhost:${env.PORT}/docs` },
+      '🚀 User Service is running',
     );
   } catch (error) {
     logger.fatal({ err: error }, 'Failed to start server');
@@ -257,15 +185,8 @@ async function start(): Promise<void> {
 }
 
 // ═══ Graceful Shutdown ═══
-
-/**
- * When the process receives a shutdown signal (SIGTERM from K8s, Ctrl+C),
- * close the server gracefully: finish processing current requests,
- * close database connections, then exit.
- */
 async function shutdown(signal: string): Promise<void> {
-  logger.info({ signal }, 'Shutdown signal received, closing server...');
-
+  logger.info({ signal }, 'Shutdown signal received');
   try {
     await app.close();
     await eventBus.close();
@@ -281,5 +202,4 @@ async function shutdown(signal: string): Promise<void> {
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
-// Start!
 await start();

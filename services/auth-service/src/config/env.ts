@@ -41,6 +41,9 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
+  // RabbitMQ
+  RABBITMQ_URL: z.string().default('amqp://dashdine:dev_password@localhost:5672'),
+
   // JWT
   JWT_ACCESS_SECRET: z
     .string()

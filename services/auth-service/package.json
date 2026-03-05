@@ -16,6 +16,7 @@
   "dependencies": {
     "@dashdine/constants": "workspace:*",
     "@dashdine/logger": "workspace:*",
+    "@dashdine/queue": "workspace:*",
     "@dashdine/types": "workspace:*",
     "@dashdine/utils": "workspace:*",
     "@dashdine/validators": "workspace:*",

@@ -1,0 +1,31 @@
+{
+  "name": "@dashdine/queue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared RabbitMQ publisher/consumer for DashDine event-driven communication",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "@dashdine/constants": "workspace:*",
+    "@dashdine/types": "workspace:*",
+    "amqplib": "^0.10.5"
+  },
+  "devDependencies": {
+    "@dashdine/eslint-config": "workspace:*",
+    "@types/amqplib": "^0.10.0",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3"
+  }
+}

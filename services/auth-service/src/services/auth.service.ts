@@ -17,7 +17,7 @@ import { eq } from 'drizzle-orm';
 
 import { type AuthTokens, type UserRole } from '@dashdine/types';
 import { generateId } from '@dashdine/utils';
-import { DEFAULTS } from '@dashdine/constants';
+import { DEFAULTS, EVENTS, EXCHANGES } from '@dashdine/constants';
 import { type RegisterInput, type LoginInput } from '@dashdine/validators';
 
 import { db } from '../db/index.js';
@@ -25,6 +25,7 @@ import { authCredentials, refreshTokens, type AuthCredential } from '../db/schem
 import { hashPassword, comparePassword } from '../lib/password.js';
 import { generateTokenPair, hashRefreshToken } from '../lib/jwt.js';
 import { AppError, ConflictError, UnauthorizedError } from '../lib/errors.js';
+import { eventBus } from '../server.js';
 
 // ═══ Types ═══
 
@@ -123,6 +124,26 @@ export async function registerUser(
 
   // Store refresh token hash in database
   await storeRefreshToken(userId, tokenPair.refreshTokenRaw, meta);
+
+  // Publish user.registered event to RabbitMQ
+  // This is ASYNC and non-blocking — we don't await the consumer's processing.
+  // If User Service is down, RabbitMQ holds the message until it comes back.
+  await eventBus.publish(EXCHANGES.USERS, EVENTS.USER_REGISTERED, {
+    eventId: generateId(),
+    eventType: EVENTS.USER_REGISTERED,
+    aggregateId: userId,
+    data: {
+      userId,
+      email: input.email,
+      phone: input.phone,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      role: 'CUSTOMER',
+    },
+    correlationId: `reg_${userId}`,
+    timestamp: new Date().toISOString(),
+    source: 'auth-service',
+  });
 
   return {
     user: {
