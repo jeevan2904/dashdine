@@ -4,7 +4,7 @@
  * Shared utility functions used across all DashDine services.
  * These are pure functions with no side effects — easy to test and reason about.
  */
-
+import { setTimeout } from 'node:timers';
 import { createId, isCuid } from '@paralleldrive/cuid2';
 
 // ═══ ID Generation ═══
@@ -197,7 +197,7 @@ function toRadians(degrees: number): number {
  * Useful for retry logic with backoff.
  */
 export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
 }
@@ -226,8 +226,4 @@ export async function retry<T>(
 
   // TypeScript needs this even though it's unreachable
   throw new Error('Retry failed');
-}
-
-function setTimeout(resolve: (value: void | PromiseLike<void>) => void, ms: number) {
-  throw new Error('Function not implemented.');
 }
